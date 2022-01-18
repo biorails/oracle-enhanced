@@ -42,7 +42,7 @@ module ActiveRecord
               cursor.exec
             end
 
-            if (name == "EXPLAIN") && sql =~ /^EXPLAIN/
+            if (name == "EXPLAIN") && sql.start_with?("EXPLAIN")
               res = true
             else
               columns = cursor.get_col_names.map do |col_name|
@@ -53,7 +53,7 @@ module ActiveRecord
               while row = cursor.fetch(fetch_options)
                 rows << row
               end
-              res = ActiveRecord::Result.new(columns, rows)
+              res = build_result(columns: columns, rows: rows)
             end
 
             cursor.close unless cached
@@ -67,7 +67,7 @@ module ActiveRecord
 
         def explain(arel, binds = [])
           sql = "EXPLAIN PLAN FOR #{to_sql(arel, binds)}"
-          return if sql =~ /FROM all_/
+          return if /FROM all_/.match?(sql)
           if ORACLE_ENHANCED_CONNECTION == :jdbc
             exec_query(sql, "EXPLAIN", binds)
           else
@@ -130,7 +130,7 @@ module ActiveRecord
               rows << [returning_id]
             end
             cursor.close unless cached
-            ActiveRecord::Result.new(returning_id_col || [], rows)
+            build_result(columns: returning_id_col || [], rows: rows)
           end
         end
 
@@ -196,11 +196,11 @@ module ActiveRecord
         end
 
         def create_savepoint(name = current_savepoint_name) #:nodoc:
-          execute("SAVEPOINT #{name}")
+          execute("SAVEPOINT #{name}", "TRANSACTION")
         end
 
         def exec_rollback_to_savepoint(name = current_savepoint_name) #:nodoc:
-          execute("ROLLBACK TO #{name}")
+          execute("ROLLBACK TO #{name}", "TRANSACTION")
         end
 
         def release_savepoint(name = current_savepoint_name) #:nodoc:
