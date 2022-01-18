@@ -370,7 +370,7 @@ module ActiveRecord
           # Initialize NLS parameters
           OracleEnhancedAdapter::DEFAULT_NLS_PARAMETERS.each do |key, default_value|
             value = config[key] || ENV[key.to_s.upcase] || default_value
-            if value.present?
+            if value
               sql = "alter session set #{key} = '#{value}'"
               begin
                 conn.exec sql
@@ -381,7 +381,7 @@ module ActiveRecord
           end
           OracleEnhancedAdapter::DEFAULT_SESSION_PARAMETERS.each do |key, default_value|
             value = config[key] || ENV[key.to_s.upcase] || default_value
-            if value.present?
+            if value
               sql = "alter session set #{key} = #{value.to_i > 0 ? value : "'#{value}'"}"
               begin
                 conn.exec sql
@@ -392,7 +392,7 @@ module ActiveRecord
           end
           OracleEnhancedAdapter::DEFAULT_SESSION_SETTINGS.each do |key, default_value|
             value = config[key] || default_value
-            if value.present?
+            if value
               sql = "alter session #{key} #{value.to_i > 0 ? value : "'#{value}'"}"
               begin
                 conn.exec sql
