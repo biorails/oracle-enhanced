@@ -203,7 +203,7 @@ module ActiveRecord
       #
       #   ActiveRecord::ConnectionAdapters::OracleEnhancedAdapter.default_sequence_start_value = 10000
       cattr_accessor :default_sequence_start_value
-      self.default_sequence_start_value = 1
+      self.default_sequence_start_value = 10000
 
       ##
       # :singleton-method:
@@ -305,7 +305,7 @@ module ActiveRecord
       end
 
       def supports_datetime_with_precision?
-        false
+        true
       end
 
       def supports_comments?
@@ -430,7 +430,7 @@ module ActiveRecord
         integer: { name: "NUMBER", limit: 38 },
         float: { name: "BINARY_DOUBLE" },
         decimal: { name: "NUMBER" },
-        datetime: { name: "DATE" },
+        datetime: { name: "TIMESTAMP" },
         timestamp: { name: "TIMESTAMP" },
         timestamptz: { name: "TIMESTAMP WITH TIME ZONE" },
         timestampltz: { name: "TIMESTAMP WITH LOCAL TIME ZONE" },
@@ -470,6 +470,9 @@ module ActiveRecord
         @connection.raw_connection
       end
 
+      def prepare(sql)
+        Cursor.new(@connection, raw_connection.parse(sql))
+      end
       # Returns true if the connection is active.
       def active? #:nodoc:
         # Pings the connection to check if it's still good. Note that an
@@ -730,6 +733,7 @@ module ActiveRecord
         def initialize_type_map(m = type_map)
           super
           # oracle
+          register_class_with_precision m, %r(date)i,                 Type::DateTime
           register_class_with_precision m, %r(WITH TIME ZONE)i,       Type::OracleEnhanced::TimestampTz
           register_class_with_precision m, %r(WITH LOCAL TIME ZONE)i, Type::OracleEnhanced::TimestampLtz
           register_class_with_limit m, %r(raw)i,            Type::OracleEnhanced::Raw
