@@ -252,6 +252,9 @@ module ActiveRecord
         ADAPTER_NAME
       end
 
+      def prepare(sql)
+        @connection.prepare(sql)
+      end
       # Oracle enhanced adapter has no implementation because
       # Oracle Database cannot detect `NoDatabaseError`.
       # Please refer to the following discussion for details.
@@ -470,9 +473,6 @@ module ActiveRecord
         @connection.raw_connection
       end
 
-      def prepare(sql)
-        Cursor.new(@connection, raw_connection.parse(sql))
-      end
       # Returns true if the connection is active.
       def active? #:nodoc:
         # Pings the connection to check if it's still good. Note that an
@@ -701,7 +701,7 @@ module ActiveRecord
           }.reject(&:blank?).map.with_index { |column, i|
             "FIRST_VALUE(#{column}) OVER (PARTITION BY #{columns} ORDER BY #{column}) AS alias_#{i}__"
           }
-        [super, *order_columns].join(", ")
+        (order_columns << super).join(", ")
       end
 
       def temporary_table?(table_name) #:nodoc:
