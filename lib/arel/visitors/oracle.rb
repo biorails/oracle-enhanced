@@ -14,22 +14,18 @@ module Arel # :nodoc: all
       #
       # Make all like operations case insensitive
       def visit_Arel_Nodes_Matches(o, collector)
-        right = if o.right.class == String
-                  # this is one level deeper, so the % are already around the string
-                  # split the string at the beginning % and the % at the end
-                  # the goal is to escape %, \ and _ with \%, \\ and \_
-                  split_a = if o.right == '%%'
-                              ['', '']
-                            else
-                              o.right.split(/\A%{1}|%{1}\z/)
-                            end
-                  split_a += [''] if o.right.end_with?('%')
-                  split_a.map! { |split_part| sanitize_sql_like(split_part) }
-                  Arel::Nodes::SqlLiteral.new(split_a.join('%'))
-                else
-                  o.right
-                end
-        collector << "LOWER(#{visit(o.left, "")}) LIKE LOWER(#{visit(right, "")}) ESCAPE '\\'"
+        collector << 'LOWER('
+        collector = visit o.left, collector
+        collector << ') LIKE LOWER('
+        collector = visit o.right, collector
+        collector << ')'
+        if o.escape
+          collector << ' ESCAPE '
+          visit o.escape, collector
+        else
+          collector << " ESCAPE '\\'"
+          collector
+        end
       end
 
       def visit_Arel_Nodes_SelectStatement(o, collector)
