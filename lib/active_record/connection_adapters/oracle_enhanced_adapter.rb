@@ -612,14 +612,11 @@ module ActiveRecord
                                    'CHAR', DECODE(char_used, 'C', char_length, data_length),
                                     NULL) AS limit,
                  DECODE(data_type, 'NUMBER', data_scale, NULL) AS scale,
-                 comments.comments as column_comment
+                 null as column_comment
             FROM all_tab_cols cols, all_col_comments comments
            WHERE cols.owner      = '#{owner}'
              AND cols.table_name = #{quote(desc_table_name)}
              AND cols.hidden_column = 'NO'
-             AND cols.owner = comments.owner
-             AND cols.table_name = comments.table_name
-             AND cols.column_name = comments.column_name
            ORDER BY cols.column_id
         SQL
       end
