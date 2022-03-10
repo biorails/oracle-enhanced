@@ -593,7 +593,7 @@ module ActiveRecord
       # Default tablespace name of current user
       def default_tablespace
         select_value(<<~SQL.squish, "SCHEMA")
-          SELECT /*+ OPTIMIZER_FEATURES_ENABLE('11.2.0.2') */ LOWER(default_tablespace) FROM user_users
+          SELECT LOWER(default_tablespace) FROM user_users
           WHERE username = SYS_CONTEXT('userenv', 'current_schema')
         SQL
       end
@@ -602,7 +602,7 @@ module ActiveRecord
         (owner, desc_table_name) = @connection.describe(table_name)
 
         select_all(<<~SQL.squish, "SCHEMA")
-          SELECT /*+ OPTIMIZER_FEATURES_ENABLE('11.2.0.2') */ cols.column_name AS name, cols.data_type AS sql_type,
+          SELECT cols.column_name AS name, cols.data_type AS sql_type,
                  cols.data_default, cols.nullable, cols.virtual_column, cols.hidden_column,
                  cols.data_type_owner AS sql_type_owner,
                  DECODE(cols.data_type, 'NUMBER', data_precision,
@@ -634,7 +634,7 @@ module ActiveRecord
         (owner, desc_table_name) = @connection.describe(table_name)
 
         seqs = select_values(<<~SQL.squish, "SCHEMA")
-          select /*+ OPTIMIZER_FEATURES_ENABLE('11.2.0.2') */ us.sequence_name
+          select us.sequence_name
           from all_sequences us
           where us.sequence_owner = '#{owner}'
           and us.sequence_name = upper(#{quote(default_sequence_name(desc_table_name))})
@@ -642,7 +642,7 @@ module ActiveRecord
 
         # changed back from user_constraints to all_constraints for consistency
         pks = select_values(<<~SQL.squish, "SCHEMA")
-          SELECT /*+ OPTIMIZER_FEATURES_ENABLE('11.2.0.2') */ cc.column_name
+          SELECT cc.column_name
             FROM all_constraints c, all_cons_columns cc
            WHERE c.owner = '#{owner}'
              AND c.table_name = #{quote(desc_table_name)}
@@ -676,7 +676,7 @@ module ActiveRecord
         (_owner, desc_table_name) = @connection.describe(table_name)
 
         pks = select_values(<<~SQL.squish, "SCHEMA", [bind_string("table_name", desc_table_name)])
-          SELECT /*+ OPTIMIZER_FEATURES_ENABLE('11.2.0.2') */ cc.column_name
+          SELECT cc.column_name
             FROM all_constraints c, all_cons_columns cc
            WHERE c.owner = SYS_CONTEXT('userenv', 'current_schema')
              AND c.table_name = :table_name
@@ -706,7 +706,7 @@ module ActiveRecord
 
       def temporary_table?(table_name) #:nodoc:
         select_value(<<~SQL.squish, "SCHEMA", [bind_string("table_name", table_name.upcase)]) == "Y"
-          SELECT /*+ OPTIMIZER_FEATURES_ENABLE('11.2.0.2') */
+          SELECT
           temporary FROM all_tables WHERE table_name = :table_name and owner = SYS_CONTEXT('userenv', 'current_schema')
         SQL
       end
