@@ -243,7 +243,7 @@ module ActiveRecord
         super(connection, logger, config)
         @enable_dbms_output = false
         @do_not_prefetch_primary_key = {}
-        @columns_cache = {}
+        @columns_cache = nil
       end
 
       ADAPTER_NAME = "OracleEnhanced"
@@ -578,7 +578,7 @@ module ActiveRecord
 
       # Current database session user
       def current_user
-        select_value(<<~SQL.squish, "SCHEMA")
+        @current_user ||= select_value(<<~SQL.squish, "SCHEMA")
           SELECT SYS_CONTEXT('userenv', 'session_user') FROM dual
         SQL
       end
@@ -592,7 +592,7 @@ module ActiveRecord
 
       # Default tablespace name of current user
       def default_tablespace
-        select_value(<<~SQL.squish, "SCHEMA")
+        @default_tablespace ||= select_value(<<~SQL.squish, "SCHEMA")
           SELECT LOWER(default_tablespace) FROM user_users
           WHERE username = SYS_CONTEXT('userenv', 'current_schema')
         SQL
@@ -613,7 +613,7 @@ module ActiveRecord
                                     NULL) AS limit,
                  DECODE(data_type, 'NUMBER', data_scale, NULL) AS scale,
                  null as column_comment
-            FROM all_tab_cols cols, all_col_comments comments
+            FROM all_tab_cols cols
            WHERE cols.owner      = '#{owner}'
              AND cols.table_name = #{quote(desc_table_name)}
              AND cols.hidden_column = 'NO'
@@ -622,7 +622,7 @@ module ActiveRecord
       end
 
       def clear_table_columns_cache(table_name)
-        @columns_cache[table_name.to_s] = nil
+        @columns_cache[table_name.to_s] = nil if @columns_cache.present?
       end
 
       # Find a table's primary key and sequence.
