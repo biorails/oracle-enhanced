@@ -613,9 +613,8 @@ module ActiveRecord
                                     NULL) AS limit,
                  DECODE(data_type, 'NUMBER', data_scale, NULL) AS scale,
                  null as column_comment
-            FROM all_tab_cols cols
-           WHERE cols.owner      = '#{owner}'
-             AND cols.table_name = #{quote(desc_table_name)}
+            FROM user_tab_cols cols
+           WHERE cols.table_name = #{quote(desc_table_name)}
              AND cols.hidden_column = 'NO'
            ORDER BY cols.column_id
         SQL

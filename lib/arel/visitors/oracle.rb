@@ -140,7 +140,7 @@ module Arel # :nodoc: all
             if values.empty?
               @connection.quote(nil)
             else
-              values.join(",")
+              values.join(", ")
             end
 
           collector << expr
