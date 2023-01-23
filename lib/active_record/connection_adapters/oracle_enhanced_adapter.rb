@@ -203,7 +203,7 @@ module ActiveRecord
       #
       #   ActiveRecord::ConnectionAdapters::OracleEnhancedAdapter.default_sequence_start_value = 10000
       cattr_accessor :default_sequence_start_value
-      self.default_sequence_start_value = 1
+      self.default_sequence_start_value = 10000
 
       ##
       # :singleton-method:
@@ -226,7 +226,7 @@ module ActiveRecord
       #   ActiveRecord::ConnectionAdapters::OracleEnhancedAdapter.permissions =
       #   ["create session", "create table", "create view", "create sequence", "create trigger", "ctxapp"]
       cattr_accessor :permissions
-      self.permissions = ["create session", "create table", "create view", "create sequence"]
+      self.permissions = ["unlimited tablespace", "create session", "create table", "create view", "create sequence"]
 
       ##
       # :singleton-method:
@@ -243,7 +243,7 @@ module ActiveRecord
         super(connection, logger, config)
         @enable_dbms_output = false
         @do_not_prefetch_primary_key = {}
-        @columns_cache = {}
+        @columns_cache = nil
       end
 
       ADAPTER_NAME = "OracleEnhanced"
@@ -252,6 +252,9 @@ module ActiveRecord
         ADAPTER_NAME
       end
 
+      def prepare(sql)
+        @connection.prepare(sql)
+      end
       # Oracle enhanced adapter has no implementation because
       # Oracle Database cannot detect `NoDatabaseError`.
       # Please refer to the following discussion for details.
@@ -384,6 +387,43 @@ module ActiveRecord
         nls_timestamp_format: "YYYY-MM-DD HH24:MI:SS:FF6"
       }
 
+      DEFAULT_SESSION_SETTINGS = {
+        :advise => nil,
+        :current_schema => nil,
+        :isolation_level => nil,
+        :enable => nil,
+        :disable => nil
+      }
+
+      DEFAULT_SESSION_PARAMETERS = {
+        :asm_power_limit => nil,
+        :db_file_multiblock_read_count => nil,
+        :hash_area_size => nil,
+        :max_dump_file_size => nil,
+        :olap_page_pool_size => nil,
+        :optimizer_dynamic_sampling => nil,
+        :optimizer_features_enable => nil,
+        :optimizer_index_caching => nil,
+        :optimizer_index_cost_adj => nil,
+        :optimizer_mode => nil,
+        :parallel_instance_group => nil,
+        :parallel_min_percent => nil,
+        :query_rewrite_enabled => nil,
+        :query_rewrite_integrity => nil,
+        :recyclebin => nil,
+        :remote_dependencies_mode => nil,
+        :session_cached_cursors => nil,
+        :sort_area_retained_size => nil,
+        :sort_area_size => nil,
+        :sql_trace => nil,
+        :sqltune_category => nil,
+        :star_transformation_enabled => nil,
+        :statistics_level => nil,
+        :timed_os_statistics => nil,
+        :timed_statistics => nil,
+        :workarea_size_policy => nil
+      }
+
       #:stopdoc:
       NATIVE_DATABASE_TYPES = {
         primary_key: "NUMBER(38) NOT NULL PRIMARY KEY",
@@ -391,7 +431,7 @@ module ActiveRecord
         text: { name: "CLOB" },
         ntext: { name: "NCLOB" },
         integer: { name: "NUMBER", limit: 38 },
-        float: { name: "BINARY_FLOAT" },
+        float: { name: "BINARY_DOUBLE" },
         decimal: { name: "NUMBER" },
         datetime: { name: "TIMESTAMP" },
         timestamp: { name: "TIMESTAMP" },
@@ -538,7 +578,7 @@ module ActiveRecord
 
       # Current database session user
       def current_user
-        select_value(<<~SQL.squish, "SCHEMA")
+        @current_user ||= select_value(<<~SQL.squish, "SCHEMA")
           SELECT SYS_CONTEXT('userenv', 'session_user') FROM dual
         SQL
       end
@@ -552,7 +592,7 @@ module ActiveRecord
 
       # Default tablespace name of current user
       def default_tablespace
-        select_value(<<~SQL.squish, "SCHEMA")
+        @default_tablespace ||= select_value(<<~SQL.squish, "SCHEMA")
           SELECT LOWER(default_tablespace) FROM user_users
           WHERE username = SYS_CONTEXT('userenv', 'current_schema')
         SQL
@@ -572,20 +612,16 @@ module ActiveRecord
                                    'CHAR', DECODE(char_used, 'C', char_length, data_length),
                                     NULL) AS limit,
                  DECODE(data_type, 'NUMBER', data_scale, NULL) AS scale,
-                 comments.comments as column_comment
-            FROM all_tab_cols cols, all_col_comments comments
-           WHERE cols.owner      = '#{owner}'
-             AND cols.table_name = #{quote(desc_table_name)}
+                 null as column_comment
+            FROM user_tab_cols cols
+           WHERE cols.table_name = #{quote(desc_table_name)}
              AND cols.hidden_column = 'NO'
-             AND cols.owner = comments.owner
-             AND cols.table_name = comments.table_name
-             AND cols.column_name = comments.column_name
            ORDER BY cols.column_id
         SQL
       end
 
       def clear_table_columns_cache(table_name)
-        @columns_cache[table_name.to_s] = nil
+        @columns_cache[table_name.to_s] = nil if @columns_cache.present?
       end
 
       # Find a table's primary key and sequence.
@@ -661,12 +697,13 @@ module ActiveRecord
           }.reject(&:blank?).map.with_index { |column, i|
             "FIRST_VALUE(#{column}) OVER (PARTITION BY #{columns} ORDER BY #{column}) AS alias_#{i}__"
           }
-        [super, *order_columns].join(", ")
+        (order_columns << super).join(", ")
       end
 
       def temporary_table?(table_name) #:nodoc:
         select_value(<<~SQL.squish, "SCHEMA", [bind_string("table_name", table_name.upcase)]) == "Y"
-          SELECT temporary FROM all_tables WHERE table_name = :table_name and owner = SYS_CONTEXT('userenv', 'current_schema')
+          SELECT
+          temporary FROM all_tables WHERE table_name = :table_name and owner = SYS_CONTEXT('userenv', 'current_schema')
         SQL
       end
 
@@ -692,6 +729,7 @@ module ActiveRecord
         def initialize_type_map(m = type_map)
           super
           # oracle
+          register_class_with_precision m, %r(date)i,                 Type::DateTime
           register_class_with_precision m, %r(WITH TIME ZONE)i,       Type::OracleEnhanced::TimestampTz
           register_class_with_precision m, %r(WITH LOCAL TIME ZONE)i, Type::OracleEnhanced::TimestampLtz
           register_class_with_limit m, %r(raw)i,            Type::OracleEnhanced::Raw

@@ -48,9 +48,9 @@ module Arel # :nodoc: all
           column_name = quote_table_name(o.table_name) + "." + quote_column_name(o.column_name)
           operator =
             if o.type == :in
-              "IN ("
+              " IN ("
             else
-              "NOT IN ("
+              " NOT IN ("
             end
 
           if !Array === values || values.length <= in_clause_length
@@ -67,9 +67,15 @@ module Arel # :nodoc: all
             collector << expr
             collector << ")"
           else
+            separator =
+              if o.type == :in
+                " OR "
+              else
+                " AND "
+              end
             collector << "("
             values.each_slice(in_clause_length).each_with_index do |valuez, i|
-              collector << " OR " unless i == 0
+              collector << separator unless i == 0
               collector << column_name
               collector << operator
               collector << valuez.join(",")
@@ -79,59 +85,6 @@ module Arel # :nodoc: all
           end
 
           collector
-        end
-
-        def visit_Arel_Nodes_In(o, collector)
-          attr, values = o.left, o.right
-
-          if Array === values
-            unless values.empty?
-              values.delete_if { |value| unboundable?(value) }
-            end
-
-            return collector << "1=0" if values.empty?
-          end
-
-          in_clause_length = @connection.in_clause_length
-
-          if !Array === values || values.length <= in_clause_length
-            visit(attr, collector) << " IN ("
-            visit(values, collector) << ")"
-          else
-            collector << "("
-            values.each_slice(in_clause_length).each_with_index do |valuez, i|
-              collector << " OR " unless i == 0
-              visit(attr, collector) << " IN ("
-              visit(valuez, collector) << ")"
-            end
-            collector << ")"
-          end
-        end
-
-        def visit_Arel_Nodes_NotIn(o, collector)
-          attr, values = o.left, o.right
-
-          if Array === values
-            unless values.empty?
-              values.delete_if { |value| unboundable?(value) }
-            end
-
-            return collector << "1=1" if values.empty?
-          end
-
-          in_clause_length = @connection.in_clause_length
-
-          if !Array === values || values.length <= in_clause_length
-            visit(attr, collector) << " NOT IN ("
-            visit(values, collector) << ")"
-          else
-            values.each_slice(in_clause_length).each_with_index do |valuez, i|
-              collector << " AND " unless i == 0
-              visit(attr, collector) << " NOT IN ("
-              visit(valuez, collector) << ")"
-            end
-            collector
-          end
         end
 
         def visit_Arel_Nodes_UpdateStatement(o, collector)
@@ -154,6 +107,17 @@ module Arel # :nodoc: all
           collector << "DECODE("
           collector = visit [o.left, o.right, 0, 1], collector
           collector << ")"
+        end
+
+        # Oracle will occur an error `ORA-00907: missing right parenthesis`
+        # when using `ORDER BY` in `UPDATE` or `DELETE`'s subquery.
+        #
+        # This method has been overridden based on the following code.
+        # https://github.com/rails/rails/blob/v6.1.0.rc1/activerecord/lib/arel/visitors/to_sql.rb#L815-L825
+        def build_subselect(key, o)
+          stmt             = super
+          stmt.orders      = [] # `orders` will never be set to prevent `ORA-00907`.
+          stmt
         end
     end
   end

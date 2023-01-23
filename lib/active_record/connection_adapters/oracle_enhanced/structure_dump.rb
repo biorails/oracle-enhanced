@@ -9,7 +9,8 @@ module ActiveRecord #:nodoc:
 
         def structure_dump #:nodoc:
           sequences = select(<<~SQL.squish, "SCHEMA")
-            SELECT sequence_name, min_value, max_value, increment_by, order_flag, cycle_flag
+            SELECT 
+            sequence_name, min_value, max_value, increment_by, order_flag, cycle_flag
             FROM all_sequences
             where sequence_owner = SYS_CONTEXT('userenv', 'current_schema') ORDER BY 1
           SQL
@@ -54,8 +55,9 @@ module ActiveRecord #:nodoc:
             structure << structure_dump_column_comments(table_name)
           end
 
-          join_with_statement_token(structure) << structure_dump_fk_constraints
-          join_with_statement_token(structure) << structure_dump_views
+          join_with_statement_token(structure) <<
+            structure_dump_fk_constraints <<
+            structure_dump_views
         end
 
         def structure_dump_column(column) #:nodoc:
@@ -264,7 +266,8 @@ module ActiveRecord #:nodoc:
 
         def structure_drop #:nodoc:
           sequences = select_values(<<~SQL.squish, "SCHEMA")
-            SELECT sequence_name FROM all_sequences where sequence_owner = SYS_CONTEXT('userenv', 'current_schema') ORDER BY 1
+            SELECT
+            sequence_name FROM all_sequences where sequence_owner = SYS_CONTEXT('userenv', 'current_schema') ORDER BY 1
           SQL
           statements = sequences.map do |seq|
             "DROP SEQUENCE \"#{seq}\""

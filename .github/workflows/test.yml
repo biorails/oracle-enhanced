@@ -11,13 +11,10 @@ jobs:
     strategy:
       matrix:
         ruby: [
+          3.0,
           2.7,
           2.6,
-          2.5,
-          ruby-head,
-          ruby-debug,
-          jruby,
-          jruby-head
+          2.5
         ]
     env:
       ORACLE_HOME: /usr/lib/oracle/18.5/client64

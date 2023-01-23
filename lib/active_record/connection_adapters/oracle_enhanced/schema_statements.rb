@@ -12,7 +12,8 @@ module ActiveRecord
 
         def tables #:nodoc:
           select_values(<<~SQL.squish, "SCHEMA")
-            SELECT DECODE(table_name, UPPER(table_name), LOWER(table_name), table_name)
+            SELECT 
+            DECODE(table_name, UPPER(table_name), LOWER(table_name), table_name)
             FROM all_tables
             WHERE owner = SYS_CONTEXT('userenv', 'current_schema')
             AND secondary = 'N'
@@ -60,13 +61,15 @@ module ActiveRecord
 
         def views # :nodoc:
           select_values(<<~SQL.squish, "SCHEMA")
-            SELECT LOWER(view_name) FROM all_views WHERE owner = SYS_CONTEXT('userenv', 'current_schema')
+            SELECT
+            LOWER(view_name) FROM all_views WHERE owner = SYS_CONTEXT('userenv', 'current_schema')
           SQL
         end
 
         def materialized_views #:nodoc:
           select_values(<<~SQL.squish, "SCHEMA")
-            SELECT LOWER(mview_name) FROM all_mviews WHERE owner = SYS_CONTEXT('userenv', 'current_schema')
+            SELECT 
+            LOWER(mview_name) FROM all_mviews WHERE owner = SYS_CONTEXT('userenv', 'current_schema')
           SQL
         end
 
@@ -157,8 +160,45 @@ module ActiveRecord
           all_schema_indexes.select { |i| i.table == table_name }
         end
 
+        def build_columns_cache()
+          sql = <<~SQL.squish
+          SELECT LOWER(cols.table_name) AS table_name,
+                 cols.column_name AS name, 
+                 cols.data_type AS sql_type,
+                 cols.data_default, 
+                 cols.nullable, 
+                 cols.virtual_column, 
+                 cols.hidden_column,
+                 cols.data_type_owner AS sql_type_owner,
+                 DECODE(cols.data_type, 'NUMBER', data_precision,
+                                   'FLOAT', data_precision,
+                                   'VARCHAR2', DECODE(char_used, 'C', char_length, data_length),
+                                   'RAW', DECODE(char_used, 'C', char_length, data_length),
+                                   'CHAR', DECODE(char_used, 'C', char_length, data_length),
+                                    NULL) AS limit,
+                 DECODE(data_type, 'NUMBER', data_scale, NULL) AS scale,
+                 null as column_comment
+            FROM user_tab_cols cols
+           WHERE cols.hidden_column = 'NO'
+           ORDER BY cols.table_name, cols.column_id
+          SQL
+          cache = {}
+          old_key = nil
+          select_all(sql).each do |row|
+            key = row['table_name']
+            if old_key != key
+              old_key = key
+              cache[key] = []
+            end
+            cache[key] <<  new_column_from_field(key, row)
+          end
+          cache
+        end
+
+
         def columns(table_name)
           table_name = table_name.to_s
+          @columns_cache ||= build_columns_cache
           if @columns_cache[table_name]
             @columns_cache[table_name]
           else
