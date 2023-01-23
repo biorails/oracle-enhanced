@@ -1,6 +1,7 @@
 require:
   - rubocop-performance
   - rubocop-rails
+  - rubocop-rspec
 
 AllCops:
   TargetRubyVersion: 2.7
@@ -132,6 +133,9 @@ Style/FrozenStringLiteralComment:
   Enabled: true
   EnforcedStyle: always
 
+Style/MapToHash:
+  Enabled: true
+
 Style/RedundantFreeze:
   Enabled: true
 
@@ -186,6 +190,9 @@ Lint/DuplicateMethods:
 Lint/ErbNewArguments:
   Enabled: true
 
+Lint/EnsureReturn:
+  Enabled: true
+
 # Use my_method(my_arg) not my_method( my_arg ) or my_method my_arg.
 Lint/RequireParentheses:
   Enabled: true
@@ -232,6 +239,10 @@ Style/ColonMethodCall:
 Style/TrivialAccessors:
   Enabled: true
 
+# Prefer a = b || c over a = b ? b : c
+Style/RedundantCondition:
+  Enabled: true
+
 Performance/BindCall:
   Enabled: true
 
@@ -270,4 +281,32 @@ Performance/DeletePrefix:
   Enabled: true
 
 Performance/DeleteSuffix:
+  Enabled: true
+
+Performance/OpenStruct:
+  Enabled: true
+
+# RuboCop RSpec cops
+RSpec/BeEq:
+  Enabled: true
+
+RSpec/BeNil:
+  Enabled: true
+
+RSpec/EmptyLineAfterExampleGroup:
+  Enabled: true
+
+RSpec/EmptyLineAfterHook:
+  Enabled: true
+
+RSpec/EmptyLineAfterSubject:
+  Enabled: true
+
+RSpec/ExcessiveDocstringSpacing:
+  Enabled: true
+
+RSpec/RepeatedDescription:
+  Enabled: true
+
+RSpec/RepeatedExample:
   Enabled: true

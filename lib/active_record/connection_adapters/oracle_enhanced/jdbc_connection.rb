@@ -135,6 +135,13 @@ module ActiveRecord
             properties.put("defaultRowPrefetch", "#{prefetch_rows}") if prefetch_rows
             properties.put("internal_logon", privilege) if privilege
 
+            if config[:jdbc_connect_properties] # arbitrary additional properties for JDBC connection
+              raise "jdbc_connect_properties should contain an associative array / hash" unless config[:jdbc_connect_properties].is_a? Hash
+              config[:jdbc_connect_properties].each do |key, value|
+                properties.put(key, value)
+              end
+            end
+
             begin
               @raw_connection = java.sql.DriverManager.getConnection(url, properties)
             rescue
@@ -295,7 +302,7 @@ module ActiveRecord
 
         class Cursor
           def initialize(connection, raw_statement)
-            @connection = connection
+            @raw_connection = connection
             @raw_statement = raw_statement
           end
 
@@ -384,7 +391,7 @@ module ActiveRecord
               row_values = []
               column_types.each_with_index do |column_type, i|
                 row_values <<
-                  @connection.get_ruby_value_from_result_set(@raw_result_set, i + 1, column_type, get_lob_value)
+                  @raw_connection.get_ruby_value_from_result_set(@raw_result_set, i + 1, column_type, get_lob_value)
               end
               row_values
             else
