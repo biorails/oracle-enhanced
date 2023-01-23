@@ -63,9 +63,9 @@ require "active_record/type/oracle_enhanced/timestampltz"
 require "active_record/type/oracle_enhanced/character_string"
 
 module ActiveRecord
-  module ConnectionHandling #:nodoc:
+  module ConnectionHandling # :nodoc:
     # Establishes a connection to the database that's used by all Active Record objects.
-    def oracle_enhanced_connection(config) #:nodoc:
+    def oracle_enhanced_connection(config) # :nodoc:
       if config[:emulate_oracle_adapter] == true
         # allows the enhanced adapter to look like the OracleAdapter. Useful to pick up
         # conditionals in the rails activerecord test suite
@@ -79,7 +79,7 @@ module ActiveRecord
     end
   end
 
-  module ConnectionAdapters #:nodoc:
+  module ConnectionAdapters # :nodoc:
     # Oracle enhanced adapter will work with both
     # CRuby ruby-oci8 gem (which provides interface to Oracle OCI client)
     # or with JRuby and Oracle JDBC driver.
@@ -120,6 +120,7 @@ module ActiveRecord
     # * <tt>:schema</tt> - database schema which holds schema objects.
     # * <tt>:tcp_keepalive</tt> - TCP keepalive is enabled for OCI client, defaults to true
     # * <tt>:tcp_keepalive_time</tt> - TCP keepalive time for OCI client, defaults to 600
+    # * <tt>:jdbc_statement_cache_size</tt> - number of cached SQL cursors to keep open, disabled per default (for unpooled JDBC only)
     #
     # Optionals NLS parameters:
     #
@@ -203,7 +204,7 @@ module ActiveRecord
       #
       #   ActiveRecord::ConnectionAdapters::OracleEnhancedAdapter.default_sequence_start_value = 10000
       cattr_accessor :default_sequence_start_value
-      self.default_sequence_start_value = 10000
+      self.default_sequence_start_value = 1
 
       ##
       # :singleton-method:
@@ -243,12 +244,12 @@ module ActiveRecord
         super(connection, logger, config)
         @enable_dbms_output = false
         @do_not_prefetch_primary_key = {}
-        @columns_cache = nil
+        @columns_cache = {}
       end
 
       ADAPTER_NAME = "OracleEnhanced"
 
-      def adapter_name #:nodoc:
+      def adapter_name # :nodoc:
         ADAPTER_NAME
       end
 
@@ -275,11 +276,11 @@ module ActiveRecord
         StatementPool.new(self.class.type_cast_config_to_integer(@config[:statement_limit]))
       end
 
-      def supports_savepoints? #:nodoc:
+      def supports_savepoints? # :nodoc:
         true
       end
 
-      def supports_transaction_isolation? #:nodoc:
+      def supports_transaction_isolation? # :nodoc:
         true
       end
 
@@ -362,7 +363,7 @@ module ActiveRecord
         end
       end
 
-      #:stopdoc:
+      # :stopdoc:
       DEFAULT_NLS_PARAMETERS = {
         nls_calendar: nil,
         nls_comp: nil,
@@ -381,7 +382,7 @@ module ActiveRecord
         nls_time_tz_format: nil
       }
 
-      #:stopdoc:
+      # :stopdoc:
       FIXED_NLS_PARAMETERS = {
         nls_date_format: "YYYY-MM-DD HH24:MI:SS",
         nls_timestamp_format: "YYYY-MM-DD HH24:MI:SS:FF6"
@@ -448,9 +449,9 @@ module ActiveRecord
       NATIVE_DATABASE_TYPES_BOOLEAN_STRINGS = NATIVE_DATABASE_TYPES.dup.merge(
         boolean: { name: "VARCHAR2", limit: 1 }
       )
-      #:startdoc:
+      # :startdoc:
 
-      def native_database_types #:nodoc:
+      def native_database_types # :nodoc:
         emulate_booleans_from_strings ? NATIVE_DATABASE_TYPES_BOOLEAN_STRINGS : NATIVE_DATABASE_TYPES
       end
 
@@ -460,10 +461,10 @@ module ActiveRecord
       # If SQL statement fails due to lost connection then reconnect
       # and retry SQL statement if autocommit mode is enabled.
       # By default this functionality is disabled.
-      attr_reader :auto_retry #:nodoc:
+      attr_reader :auto_retry # :nodoc:
       @auto_retry = false
 
-      def auto_retry=(value) #:nodoc:
+      def auto_retry=(value) # :nodoc:
         @auto_retry = value
         @connection.auto_retry = value if @connection
       end
@@ -474,7 +475,7 @@ module ActiveRecord
       end
 
       # Returns true if the connection is active.
-      def active? #:nodoc:
+      def active? # :nodoc:
         # Pings the connection to check if it's still good. Note that an
         # #active? method is also available, but that simply returns the
         # last known state, which isn't good enough if the connection has
@@ -485,7 +486,7 @@ module ActiveRecord
       end
 
       # Reconnects to the database.
-      def reconnect! #:nodoc:
+      def reconnect! # :nodoc:
         super
         @connection.reset!
       rescue OracleEnhanced::ConnectionException => e
@@ -498,7 +499,7 @@ module ActiveRecord
       end
 
       # Disconnects from the database.
-      def disconnect! #:nodoc:
+      def disconnect! # :nodoc:
         super
         @connection.logoff rescue nil
       end
@@ -531,12 +532,12 @@ module ActiveRecord
         do_not_prefetch = @do_not_prefetch_primary_key[table_name]
         if do_not_prefetch.nil?
           owner, desc_table_name = @connection.describe(table_name)
-          @do_not_prefetch_primary_key [table_name] = do_not_prefetch = !has_primary_key?(table_name, owner, desc_table_name)
+          @do_not_prefetch_primary_key[table_name] = do_not_prefetch = !has_primary_key?(table_name, owner, desc_table_name)
         end
         !do_not_prefetch
       end
 
-      def reset_pk_sequence!(table_name, primary_key = nil, sequence_name = nil) #:nodoc:
+      def reset_pk_sequence!(table_name, primary_key = nil, sequence_name = nil) # :nodoc:
         return nil unless data_source_exists?(table_name)
         unless primary_key && sequence_name
           # *Note*: Only primary key is implemented - sequence will be nil.
@@ -578,7 +579,7 @@ module ActiveRecord
 
       # Current database session user
       def current_user
-        @current_user ||= select_value(<<~SQL.squish, "SCHEMA")
+        select_value(<<~SQL.squish, "SCHEMA")
           SELECT SYS_CONTEXT('userenv', 'session_user') FROM dual
         SQL
       end
@@ -592,8 +593,8 @@ module ActiveRecord
 
       # Default tablespace name of current user
       def default_tablespace
-        @default_tablespace ||= select_value(<<~SQL.squish, "SCHEMA")
-          SELECT LOWER(default_tablespace) FROM user_users
+        select_value(<<~SQL.squish, "SCHEMA")
+          SELECT /*+ OPTIMIZER_FEATURES_ENABLE('11.2.0.2') */ LOWER(default_tablespace) FROM user_users
           WHERE username = SYS_CONTEXT('userenv', 'current_schema')
         SQL
       end
@@ -601,8 +602,8 @@ module ActiveRecord
       def column_definitions(table_name)
         (owner, desc_table_name) = @connection.describe(table_name)
 
-        select_all(<<~SQL.squish, "SCHEMA")
-          SELECT cols.column_name AS name, cols.data_type AS sql_type,
+        select_all(<<~SQL.squish, "SCHEMA", [bind_string("owner", owner), bind_string("table_name", desc_table_name)])
+          SELECT /*+ OPTIMIZER_FEATURES_ENABLE('11.2.0.2') */ cols.column_name AS name, cols.data_type AS sql_type,
                  cols.data_default, cols.nullable, cols.virtual_column, cols.hidden_column,
                  cols.data_type_owner AS sql_type_owner,
                  DECODE(cols.data_type, 'NUMBER', data_precision,
@@ -612,36 +613,40 @@ module ActiveRecord
                                    'CHAR', DECODE(char_used, 'C', char_length, data_length),
                                     NULL) AS limit,
                  DECODE(data_type, 'NUMBER', data_scale, NULL) AS scale,
-                 null as column_comment
-            FROM user_tab_cols cols
-           WHERE cols.table_name = #{quote(desc_table_name)}
+                 comments.comments as column_comment
+            FROM all_tab_cols cols, all_col_comments comments
+           WHERE cols.owner      = :owner
+             AND cols.table_name = :table_name
              AND cols.hidden_column = 'NO'
+             AND cols.owner = comments.owner
+             AND cols.table_name = comments.table_name
+             AND cols.column_name = comments.column_name
            ORDER BY cols.column_id
         SQL
       end
 
       def clear_table_columns_cache(table_name)
-        @columns_cache[table_name.to_s] = nil if @columns_cache.present?
+        @columns_cache[table_name.to_s] = nil
       end
 
       # Find a table's primary key and sequence.
       # *Note*: Only primary key is implemented - sequence will be nil.
-      def pk_and_sequence_for(table_name, owner = nil, desc_table_name = nil) #:nodoc:
+      def pk_and_sequence_for(table_name, owner = nil, desc_table_name = nil) # :nodoc:
         (owner, desc_table_name) = @connection.describe(table_name)
 
-        seqs = select_values(<<~SQL.squish, "SCHEMA")
-          select us.sequence_name
+        seqs = select_values_forcing_binds(<<~SQL.squish, "SCHEMA", [bind_string("owner", owner), bind_string("sequence_name", default_sequence_name(desc_table_name))])
+          select /*+ OPTIMIZER_FEATURES_ENABLE('11.2.0.2') */ us.sequence_name
           from all_sequences us
-          where us.sequence_owner = '#{owner}'
-          and us.sequence_name = upper(#{quote(default_sequence_name(desc_table_name))})
+          where us.sequence_owner = :owner
+          and us.sequence_name = upper(:sequence_name)
         SQL
 
         # changed back from user_constraints to all_constraints for consistency
-        pks = select_values(<<~SQL.squish, "SCHEMA")
-          SELECT cc.column_name
+        pks = select_values_forcing_binds(<<~SQL.squish, "SCHEMA", [bind_string("owner", owner), bind_string("table_name", desc_table_name)])
+          SELECT /*+ OPTIMIZER_FEATURES_ENABLE('11.2.0.2') */ cc.column_name
             FROM all_constraints c, all_cons_columns cc
-           WHERE c.owner = '#{owner}'
-             AND c.table_name = #{quote(desc_table_name)}
+           WHERE c.owner = :owner
+             AND c.table_name = :table_name
              AND c.constraint_type = 'P'
              AND cc.owner = c.owner
              AND cc.constraint_name = c.constraint_name
@@ -664,15 +669,15 @@ module ActiveRecord
         pk_and_sequence && pk_and_sequence.first
       end
 
-      def has_primary_key?(table_name, owner = nil, desc_table_name = nil) #:nodoc:
+      def has_primary_key?(table_name, owner = nil, desc_table_name = nil) # :nodoc:
         !pk_and_sequence_for(table_name, owner, desc_table_name).nil?
       end
 
       def primary_keys(table_name) # :nodoc:
         (_owner, desc_table_name) = @connection.describe(table_name)
 
-        pks = select_values(<<~SQL.squish, "SCHEMA", [bind_string("table_name", desc_table_name)])
-          SELECT cc.column_name
+        pks = select_values_forcing_binds(<<~SQL.squish, "SCHEMA", [bind_string("table_name", desc_table_name)])
+          SELECT /*+ OPTIMIZER_FEATURES_ENABLE('11.2.0.2') */ cc.column_name
             FROM all_constraints c, all_cons_columns cc
            WHERE c.owner = SYS_CONTEXT('userenv', 'current_schema')
              AND c.table_name = :table_name
@@ -684,7 +689,7 @@ module ActiveRecord
         pks.map { |pk| oracle_downcase(pk) }
       end
 
-      def columns_for_distinct(columns, orders) #:nodoc:
+      def columns_for_distinct(columns, orders) # :nodoc:
         # construct a valid columns name for DISTINCT clause,
         # ie. one that includes the ORDER BY columns, using FIRST_VALUE such that
         # the inclusion of these columns doesn't invalidate the DISTINCT
@@ -700,9 +705,9 @@ module ActiveRecord
         (order_columns << super).join(", ")
       end
 
-      def temporary_table?(table_name) #:nodoc:
-        select_value(<<~SQL.squish, "SCHEMA", [bind_string("table_name", table_name.upcase)]) == "Y"
-          SELECT
+      def temporary_table?(table_name) # :nodoc:
+        select_value_forcing_binds(<<~SQL.squish, "SCHEMA", [bind_string("table_name", table_name.upcase)]) == "Y"
+          SELECT /*+ OPTIMIZER_FEATURES_ENABLE('11.2.0.2') */
           temporary FROM all_tables WHERE table_name = :table_name and owner = SYS_CONTEXT('userenv', 'current_schema')
         SQL
       end
@@ -725,83 +730,106 @@ module ActiveRecord
         end
       end
 
-      private
-        def initialize_type_map(m = type_map)
-          super
-          # oracle
-          register_class_with_precision m, %r(date)i,                 Type::DateTime
-          register_class_with_precision m, %r(WITH TIME ZONE)i,       Type::OracleEnhanced::TimestampTz
-          register_class_with_precision m, %r(WITH LOCAL TIME ZONE)i, Type::OracleEnhanced::TimestampLtz
-          register_class_with_limit m, %r(raw)i,            Type::OracleEnhanced::Raw
-          register_class_with_limit m, %r{^(char)}i,        Type::OracleEnhanced::CharacterString
-          register_class_with_limit m, %r{^(nchar)}i,       Type::OracleEnhanced::String
-          register_class_with_limit m, %r(varchar)i,        Type::OracleEnhanced::String
-          register_class_with_limit m, %r(clob)i,           Type::OracleEnhanced::Text
-          register_class_with_limit m, %r(nclob)i,           Type::OracleEnhanced::NationalCharacterText
+      class << self
+        private
+          def initialize_type_map(m)
+            super
+            # oracle
+            register_class_with_precision m, %r(WITH TIME ZONE)i,       Type::OracleEnhanced::TimestampTz
+            register_class_with_precision m, %r(WITH LOCAL TIME ZONE)i, Type::OracleEnhanced::TimestampLtz
+            register_class_with_limit m, %r(raw)i,            Type::OracleEnhanced::Raw
+            register_class_with_limit m, %r{^(char)}i,        Type::OracleEnhanced::CharacterString
+            register_class_with_limit m, %r{^(nchar)}i,       Type::OracleEnhanced::String
+            register_class_with_limit m, %r(varchar)i,        Type::OracleEnhanced::String
+            register_class_with_limit m, %r(clob)i,           Type::OracleEnhanced::Text
+            register_class_with_limit m, %r(nclob)i,           Type::OracleEnhanced::NationalCharacterText
 
-          m.register_type "NCHAR", Type::OracleEnhanced::NationalCharacterString.new
-          m.alias_type %r(NVARCHAR2)i,    "NCHAR"
+            m.register_type "NCHAR", Type::OracleEnhanced::NationalCharacterString.new
+            m.alias_type %r(NVARCHAR2)i,    "NCHAR"
 
-          m.register_type(%r(NUMBER)i) do |sql_type|
-            scale = extract_scale(sql_type)
-            precision = extract_precision(sql_type)
-            limit = extract_limit(sql_type)
-            if scale == 0
-              Type::OracleEnhanced::Integer.new(precision: precision, limit: limit)
-            else
-              Type::Decimal.new(precision: precision, scale: scale)
+            m.register_type(%r(NUMBER)i) do |sql_type|
+              scale = extract_scale(sql_type)
+              precision = extract_precision(sql_type)
+              limit = extract_limit(sql_type)
+              if scale == 0
+                Type::OracleEnhanced::Integer.new(precision: precision, limit: limit)
+              else
+                Type::Decimal.new(precision: precision, scale: scale)
+              end
+            end
+
+            if OracleEnhancedAdapter.emulate_booleans
+              m.register_type %r(^NUMBER\(1\))i, Type::Boolean.new
             end
           end
+      end
 
-          if OracleEnhancedAdapter.emulate_booleans
-            m.register_type %r(^NUMBER\(1\))i, Type::Boolean.new
-          end
+      TYPE_MAP = Type::TypeMap.new.tap { |m| initialize_type_map(m) }
+
+      def type_map
+        TYPE_MAP
+      end
+
+      def extract_value_from_default(default)
+        case default
+        when String
+          default.gsub("''", "'")
+        else
+          default
         end
+      end
 
-        def extract_value_from_default(default)
-          case default
-          when String
-            default.gsub("''", "'")
-          else
-            default
-          end
+      def extract_limit(sql_type) # :nodoc:
+        case sql_type
+        when /^bigint/i
+          19
+        when /\((.*)\)/
+          $1.to_i
         end
+      end
 
-        def extract_limit(sql_type) #:nodoc:
-          case sql_type
-          when /^bigint/i
-            19
-          when /\((.*)\)/
-            $1.to_i
-          end
+      def translate_exception(exception, message:, sql:, binds:) # :nodoc:
+        case @connection.error_code(exception)
+        when 1
+          RecordNotUnique.new(message, sql: sql, binds: binds)
+        when 60
+          Deadlocked.new(message)
+        when 900, 904, 942, 955, 1418, 2289, 2449, 17008
+          ActiveRecord::StatementInvalid.new(message, sql: sql, binds: binds)
+        when 1400
+          ActiveRecord::NotNullViolation.new(message, sql: sql, binds: binds)
+        when 2291, 2292
+          InvalidForeignKey.new(message, sql: sql, binds: binds)
+        when 12899
+          ValueTooLong.new(message, sql: sql, binds: binds)
+        else
+          super
         end
+      end
 
-        def translate_exception(exception, message:, sql:, binds:) #:nodoc:
-          case @connection.error_code(exception)
-          when 1
-            RecordNotUnique.new(message, sql: sql, binds: binds)
-          when 60
-            Deadlocked.new(message)
-          when 900, 904, 942, 955, 1418, 2289, 2449, 17008
-            ActiveRecord::StatementInvalid.new(message, sql: sql, binds: binds)
-          when 1400
-            ActiveRecord::NotNullViolation.new(message, sql: sql, binds: binds)
-          when 2291, 2292
-            InvalidForeignKey.new(message, sql: sql, binds: binds)
-          when 12899
-            ValueTooLong.new(message, sql: sql, binds: binds)
-          else
-            super
-          end
-        end
+      # create bind object for type String
+      def bind_string(name, value)
+        ActiveRecord::Relation::QueryAttribute.new(name, value, Type::OracleEnhanced::String.new)
+      end
 
-        # create bind object for type String
-        def bind_string(name, value)
-          ActiveRecord::Relation::QueryAttribute.new(name, value, Type::OracleEnhanced::String.new)
-        end
+      # call select_values using binds even if surrounding SQL preparation/execution is done + # with conn.unprepared_statement (like AR.to_sql)
+      def select_values_forcing_binds(arel, name, binds)
+        # remove possible force of unprepared SQL during dictionary access
+        unprepared_statement_forced = prepared_statements_disabled_cache.include?(object_id)
+        prepared_statements_disabled_cache.delete(object_id) if unprepared_statement_forced
 
-        ActiveRecord::Type.register(:boolean, Type::OracleEnhanced::Boolean, adapter: :oracleenhanced)
-        ActiveRecord::Type.register(:json, Type::OracleEnhanced::Json, adapter: :oracleenhanced)
+        select_values(arel, name, binds)
+      ensure
+        # Restore unprepared_statement setting for surrounding SQL
+        prepared_statements_disabled_cache.add(object_id) if unprepared_statement_forced
+      end
+
+      def select_value_forcing_binds(arel, name, binds)
+        single_value_from_rows(select_values_forcing_binds(arel, name, binds))
+      end
+
+      ActiveRecord::Type.register(:boolean, Type::OracleEnhanced::Boolean, adapter: :oracle_enhanced)
+      ActiveRecord::Type.register(:json, Type::OracleEnhanced::Json, adapter: :oracle_enhanced)
     end
   end
 end

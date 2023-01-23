@@ -7,9 +7,9 @@ gemfile(true) do
 
   git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
-  gem "rails", github: "rails/rails", branch: "6-1-stable"
-  gem "activerecord-oracle_enhanced-adapter",  github: "rsim/oracle-enhanced", branch: "release61"
-  gem "rspec"
+  gem "activerecord", github: "rails/rails", branch: "7-0-stable"
+  gem "activerecord-oracle_enhanced-adapter",  github: "rsim/oracle-enhanced", branch: "release70"
+  gem "rspec", require: "rspec/autorun"
 
   platforms :ruby do
     gem "ruby-oci8"
@@ -17,7 +17,6 @@ gemfile(true) do
 end
 
 require "active_record"
-require "rspec"
 require "logger"
 require "active_record/connection_adapters/oracle_enhanced_adapter"
 

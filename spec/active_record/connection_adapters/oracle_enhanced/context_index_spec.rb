@@ -326,7 +326,7 @@ describe "OracleEnhancedAdapter context index" do
       it "should dump definition of single column index" do
         @conn.add_context_index :posts, :title
         output = dump_table_schema "posts"
-        expect(output).to match(/add_context_index "posts", \["title"\], name: \"index_posts_on_title\"$/)
+        expect(output).to match(/add_context_index "posts", \["title"\], name: "index_posts_on_title"$/)
         @conn.remove_context_index :posts, :title
       end
 
@@ -375,7 +375,7 @@ describe "OracleEnhancedAdapter context index" do
         sub_query = "SELECT comments.author AS comment_author, comments.body AS comment_body\nFROM comments\nWHERE comments.post_id = :id"
         @conn.add_context_index :posts, [:title, :body, sub_query], options
         output = dump_table_schema "posts"
-        expect(output).to match(/add_context_index "posts", \[:title, :body, "#{sub_query.gsub(/\n/, ' ')}"\], #{options.inspect[1..-2]}$/)
+        expect(output).to match(/add_context_index "posts", \[:title, :body, "#{sub_query.tr("\n", ' ')}"\], #{options.inspect[1..-2]}$/)
         @conn.remove_context_index :posts, name: "post_and_comments_index"
       end
     end

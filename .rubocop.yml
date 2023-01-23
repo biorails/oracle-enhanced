@@ -3,8 +3,9 @@ require:
   - rubocop-rails
 
 AllCops:
-  TargetRubyVersion: 2.5
+  TargetRubyVersion: 2.7
   DisabledByDefault: true
+  SuggestExtensions: false
 
 Rails/IndexBy:
   Enabled: true
@@ -21,6 +22,9 @@ Layout/CaseIndentation:
   Enabled: true
 
 Layout/ClosingHeredocIndentation:
+  Enabled: true
+
+Layout/ClosingParenthesisIndentation:
   Enabled: true
 
 # Align comments with method definitions.
@@ -47,6 +51,9 @@ Layout/EndAlignment:
   EnforcedStyleAlignWith: variable
   AutoCorrect: true
 
+Layout/EndOfLine:
+  Enabled: true
+
 # No extra empty lines.
 Layout/EmptyLines:
   Enabled: true
@@ -65,9 +72,6 @@ Layout/EmptyLinesAroundModuleBody:
 
 # Use Ruby >= 1.9 syntax for hashes. Prefer { a: :b } over { :a => :b }.
 Style/HashSyntax:
-  Enabled: true
-
-Layout/FirstArgumentIndentation:
   Enabled: true
 
 # Method definitions after `private` or `protected` isolated calls need one
@@ -101,6 +105,10 @@ Layout/SpaceAroundKeyword:
 Layout/SpaceAroundOperators:
   Enabled: true
 
+# This cop has not been enabled at rails/rails
+Layout/SpaceBeforeBrackets:
+  Enabled: true
+
 Layout/SpaceBeforeComma:
   Enabled: true
 
@@ -115,6 +123,9 @@ Style/DefWithParentheses:
 
 # Defining a method with parameters needs parentheses.
 Style/MethodDefParentheses:
+  Enabled: true
+
+Style/ExplicitBlockArgument:
   Enabled: true
 
 Style/FrozenStringLiteralComment:
@@ -166,14 +177,17 @@ Lint/AmbiguousOperator:
 Lint/AmbiguousRegexpLiteral:
   Enabled: true
 
+Lint/DuplicateRequire:
+  Enabled: true
+
+Lint/DuplicateMethods:
+  Enabled: true
+
 Lint/ErbNewArguments:
   Enabled: true
 
 # Use my_method(my_arg) not my_method( my_arg ) or my_method my_arg.
 Lint/RequireParentheses:
-  Enabled: true
-
-Lint/ShadowingOuterLocalVariable:
   Enabled: true
 
 Lint/RedundantStringCoercion:
@@ -204,6 +218,9 @@ Style/RedundantReturn:
   Enabled: true
   AllowMultipleReturnValues: true
 
+Style/RedundantRegexpEscape:
+  Enabled: true
+
 Style/Semicolon:
   Enabled: true
   AllowAsExpressionSeparator: true
@@ -215,7 +232,16 @@ Style/ColonMethodCall:
 Style/TrivialAccessors:
   Enabled: true
 
+Performance/BindCall:
+  Enabled: true
+
 Performance/FlatMap:
+  Enabled: true
+
+Performance/MapCompact:
+  Enabled: true
+
+Performance/SelectMap:
   Enabled: true
 
 Performance/RedundantMerge:
@@ -231,6 +257,9 @@ Performance/RegexpMatch:
   Enabled: true
 
 Performance/ReverseEach:
+  Enabled: true
+
+Performance/StringReplacement:
   Enabled: true
 
 # Use unary plus to get an unfrozen string literal.

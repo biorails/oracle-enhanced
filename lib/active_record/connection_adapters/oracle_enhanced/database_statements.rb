@@ -9,19 +9,18 @@ module ActiveRecord
         # see: abstract/database_statements.rb
 
         # Executes a SQL statement
-        def execute(sql, name = nil)
-          log(sql, name) { @connection.exec(sql) }
+        def execute(sql, name = nil, async: false)
+          sql = transform_query(sql)
+
+          log(sql, name, async: async) { @connection.exec(sql) }
         end
 
-        def clear_cache! # :nodoc:
-          reload_type_map
-          super
-        end
+        def exec_query(sql, name = "SQL", binds = [], prepare: false, async: false)
+          sql = transform_query(sql)
 
-        def exec_query(sql, name = "SQL", binds = [], prepare: false)
           type_casted_binds = type_casted_binds(binds)
 
-          log(sql, name, binds, type_casted_binds) do
+          log(sql, name, binds, type_casted_binds, async: async) do
             cursor = nil
             cached = false
             with_retry do
@@ -79,7 +78,7 @@ module ActiveRecord
         # New method in ActiveRecord 3.1
         # Will add RETURNING clause in case of trigger generated primary keys
         def sql_for_insert(sql, pk, binds)
-          unless pk == false || pk.nil? || pk.is_a?(Array)
+          unless pk == false || pk.nil? || pk.is_a?(Array) || pk.is_a?(String)
             sql = "#{sql} RETURNING #{quote_column_name(pk)} INTO :returning_id"
             (binds = binds.dup) << ActiveRecord::Relation::QueryAttribute.new("returning_id", nil, Type::OracleEnhanced::Integer.new)
           end
@@ -164,7 +163,7 @@ module ActiveRecord
 
         alias :exec_delete :exec_update
 
-        def begin_db_transaction #:nodoc:
+        def begin_db_transaction # :nodoc:
           @connection.autocommit = false
         end
 
@@ -183,27 +182,27 @@ module ActiveRecord
           execute "SET TRANSACTION ISOLATION LEVEL  #{transaction_isolation_levels.fetch(isolation)}"
         end
 
-        def commit_db_transaction #:nodoc:
+        def commit_db_transaction # :nodoc:
           @connection.commit
         ensure
           @connection.autocommit = true
         end
 
-        def exec_rollback_db_transaction #:nodoc:
+        def exec_rollback_db_transaction # :nodoc:
           @connection.rollback
         ensure
           @connection.autocommit = true
         end
 
-        def create_savepoint(name = current_savepoint_name) #:nodoc:
+        def create_savepoint(name = current_savepoint_name) # :nodoc:
           execute("SAVEPOINT #{name}", "TRANSACTION")
         end
 
-        def exec_rollback_to_savepoint(name = current_savepoint_name) #:nodoc:
+        def exec_rollback_to_savepoint(name = current_savepoint_name) # :nodoc:
           execute("ROLLBACK TO #{name}", "TRANSACTION")
         end
 
-        def release_savepoint(name = current_savepoint_name) #:nodoc:
+        def release_savepoint(name = current_savepoint_name) # :nodoc:
           # there is no RELEASE SAVEPOINT statement in Oracle
         end
 
@@ -214,7 +213,7 @@ module ActiveRecord
         end
 
         # Inserts the given fixture into the table. Overridden to properly handle lobs.
-        def insert_fixture(fixture, table_name) #:nodoc:
+        def insert_fixture(fixture, table_name) # :nodoc:
           super
 
           if ActiveRecord::Base.pluralize_table_names
@@ -249,17 +248,15 @@ module ActiveRecord
         end
 
         # Writes LOB values from attributes for specified columns
-        def write_lobs(table_name, klass, attributes, columns) #:nodoc:
+        def write_lobs(table_name, klass, attributes, columns) # :nodoc:
           id = quote(attributes[klass.primary_key])
           columns.each do |col|
             value = attributes[col.name]
             # changed sequence of next two lines - should check if value is nil before converting to yaml
             next unless value
-            if klass.attribute_types[col.name].is_a? Type::Serialized
-              value = klass.attribute_types[col.name].serialize(value)
-              # value can be nil after serialization because ActiveRecord serializes [] and {} as nil
-              next unless value
-            end
+            value = klass.attribute_types[col.name].serialize(value)
+            # value can be nil after serialization because ActiveRecord serializes [] and {} as nil
+            next unless value
             uncached do
               unless lob_record = select_one(sql = <<~SQL.squish, "Writable Large Object")
                 SELECT #{quote_column_name(col.name)} FROM #{quote_table_name(table_name)}

@@ -26,7 +26,7 @@ module ActiveRecord
   module ConnectionAdapters
     # OCI database interface for MRI
     module OracleEnhanced
-      class OCIConnection < OracleEnhanced::Connection #:nodoc:
+      class OCIConnection < OracleEnhanced::Connection # :nodoc:
         def initialize(config)
           @raw_connection = OCI8EnhancedAutoRecover.new(config, OracleEnhancedOCIFactory)
           # default schema owner
@@ -306,9 +306,9 @@ module ActiveRecord
           end
           # code from Time.time_with_datetime_fallback
           begin
-            Time.send(Base.default_timezone, year, month, day, hour, min, sec, usec)
+            Time.send(ActiveRecord.default_timezone, year, month, day, hour, min, sec, usec)
           rescue
-            offset = Base.default_timezone.to_sym == :local ? ::DateTime.local_offset : 0
+            offset = ActiveRecord.default_timezone.to_sym == :local ? ::DateTime.local_offset : 0
             ::DateTime.civil(year, month, day, hour, min, sec, offset)
           end
         end
@@ -316,7 +316,7 @@ module ActiveRecord
 
       # The OracleEnhancedOCIFactory factors out the code necessary to connect and
       # configure an Oracle/OCI connection.
-      class OracleEnhancedOCIFactory #:nodoc:
+      class OracleEnhancedOCIFactory # :nodoc:
         DEFAULT_TCP_KEEPALIVE_TIME = 600
 
         def self.new_connection(config)
@@ -360,9 +360,9 @@ module ActiveRecord
           conn.non_blocking = true if async
           conn.prefetch_rows = prefetch_rows
           conn.exec "alter session set cursor_sharing = #{cursor_sharing}" rescue nil if cursor_sharing
-          if ActiveRecord::Base.default_timezone == :local
+          if ActiveRecord.default_timezone == :local
             conn.exec "alter session set time_zone = '#{time_zone}'" unless time_zone.blank?
-          elsif ActiveRecord::Base.default_timezone == :utc
+          elsif ActiveRecord.default_timezone == :utc
             conn.exec "alter session set time_zone = '+00:00'"
           end
           conn.exec "alter session set current_schema = #{schema}" unless schema.blank?
@@ -418,18 +418,18 @@ end
 # this would be dangerous (as the earlier part of the implied transaction
 # may have failed silently if the connection died) -- so instead the
 # connection is marked as dead, to be reconnected on it's next use.
-#:stopdoc:
-class OCI8EnhancedAutoRecover < DelegateClass(OCI8) #:nodoc:
-  attr_accessor :active #:nodoc:
-  alias :active? :active #:nodoc:
+# :stopdoc:
+class OCI8EnhancedAutoRecover < DelegateClass(OCI8) # :nodoc:
+  attr_accessor :active # :nodoc:
+  alias :active? :active # :nodoc:
 
   cattr_accessor :auto_retry
   class << self
-    alias :auto_retry? :auto_retry #:nodoc:
+    alias :auto_retry? :auto_retry # :nodoc:
   end
   @@auto_retry = false
 
-  def initialize(config, factory) #:nodoc:
+  def initialize(config, factory) # :nodoc:
     @active = true
     @config = config
     @factory = factory
@@ -440,7 +440,7 @@ class OCI8EnhancedAutoRecover < DelegateClass(OCI8) #:nodoc:
   # Checks connection, returns true if active. Note that ping actively
   # checks the connection, while #active? simply returns the last
   # known state.
-  def ping #:nodoc:
+  def ping # :nodoc:
     @connection.exec("select 1 from dual") { |r| nil }
     @active = true
   rescue
@@ -449,7 +449,7 @@ class OCI8EnhancedAutoRecover < DelegateClass(OCI8) #:nodoc:
   end
 
   # Resets connection, by logging off and creating a new connection.
-  def reset! #:nodoc:
+  def reset! # :nodoc:
     logoff rescue nil
     begin
       @connection = @factory.new_connection @config
@@ -466,10 +466,10 @@ class OCI8EnhancedAutoRecover < DelegateClass(OCI8) #:nodoc:
   # ORA-03113: end-of-file on communication channel
   # ORA-03114: not connected to ORACLE
   # ORA-03135: connection lost contact
-  LOST_CONNECTION_ERROR_CODES = [ 28, 1012, 3113, 3114, 3135 ] #:nodoc:
+  LOST_CONNECTION_ERROR_CODES = [ 28, 1012, 3113, 3114, 3135 ] # :nodoc:
 
   # Adds auto-recovery functionality.
-  def with_retry #:nodoc:
+  def with_retry # :nodoc:
     should_retry = self.class.auto_retry? && autocommit?
 
     begin
@@ -484,8 +484,8 @@ class OCI8EnhancedAutoRecover < DelegateClass(OCI8) #:nodoc:
     end
   end
 
-  def exec(sql, *bindvars, &block) #:nodoc:
+  def exec(sql, *bindvars, &block) # :nodoc:
     with_retry { @connection.exec(sql, *bindvars, &block) }
   end
 end
-#:startdoc:
+# :startdoc:
