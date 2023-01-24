@@ -52,7 +52,7 @@ module Arel # :nodoc: all
 
             collector = super(o, collector)
 
-            if offset.expr.type.is_a? ActiveModel::Type::Value
+            if offset.expr.is_a? ActiveModel::Type::Value
               collector << ") raw_sql_ WHERE rownum <= ("
               collector = visit offset.expr, collector
               collector << " + "
@@ -94,14 +94,6 @@ module Arel # :nodoc: all
 
           super
         end
-
-      def visit_Arel_Nodes_Ascending o, collector
-        visit(o.expr, collector) << " ASC nulls first"
-      end
-
-      def visit_Arel_Nodes_Descending o, collector
-        visit(o.expr, collector) << " DESC nulls last"
-      end
 
         def visit_Arel_Nodes_Limit(o, collector)
           collector
