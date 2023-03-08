@@ -96,11 +96,11 @@ module Arel # :nodoc: all
         end
 
       def visit_Arel_Nodes_Ascending o, collector
-        visit(o.expr, collector) << " ASC nulls first"
+        visit(o.expr, collector) << " ASC nulls last"
       end
 
       def visit_Arel_Nodes_Descending o, collector
-        visit(o.expr, collector) << " DESC nulls last"
+        visit(o.expr, collector) << " DESC nulls first"
       end
 
         def visit_Arel_Nodes_Limit(o, collector)
