@@ -60,9 +60,15 @@ module Arel # :nodoc: all
               collector << ") ) WHERE raw_rnum_ > "
               collector = visit offset.expr, collector
               return collector
-            else
+            elsif offset.expr.is_a? ActiveModel::Attribute
               collector << ") raw_sql_
                   WHERE rownum <= #{offset.expr.value_before_type_cast + limit.value_before_type_cast}
+                )
+                WHERE "
+              return visit(offset, collector)
+            else
+              collector << ") raw_sql_
+                  WHERE rownum <= #{offset.expr.to_i + limit.value_before_type_cast}
                 )
                 WHERE "
               return visit(offset, collector)
