@@ -52,7 +52,7 @@ module Arel # :nodoc: all
 
             collector = super(o, collector)
 
-            if offset.expr.type.is_a? ActiveModel::Type::Value
+            if offset.expr.is_a?(Integer) || offset.expr.type.is_a?(ActiveModel::Type::Value)
               collector << ") raw_sql_ WHERE rownum <= ("
               collector = visit offset.expr, collector
               collector << " + "
