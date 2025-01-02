@@ -62,13 +62,13 @@ module Arel # :nodoc: all
               return collector
             elsif offset.expr.is_a? ActiveModel::Attribute
               collector << ") raw_sql_
-                  WHERE rownum <= #{offset.expr.value_before_type_cast + limit.value_before_type_cast}
+                  WHERE rownum <= #{(offset.expr&.value_before_type_cast || offset.expr) + (limit&.value_before_type_cast || limit)}
                 )
                 WHERE "
               return visit(offset, collector)
             else
               collector << ") raw_sql_
-                  WHERE rownum <= #{offset.expr.value_before_type_cast + limit.value_before_type_cast}
+                  WHERE rownum <= #{(offset.expr&.value_before_type_cast || offset.expr) + (limit&.value_before_type_cast || limit)}
                 )
                 WHERE "
               return visit(offset, collector)
